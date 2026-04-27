@@ -1,0 +1,36 @@
+[package]
+name = "df"
+description = "A Lua-powered dotfile manager"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85.0"
+
+[dependencies]
+tracing = "0.1"
+tracing-subscriber = "0.3"
+thiserror = "2.0"
+color-eyre = "0.6"
+
+dir_spec = "0.5"
+clap = { version = "4", features = ["color", "derive"] }
+crossterm = { version = "0.29", features = ["event-stream"] }
+mlua = { version = "0.11", features = ["lua54", "vendored", "serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", features = ["now", "clock", "serde"] }
+walkdir = "2.5"
+sha2 = "0.11"
+hex = "0.4"
+similar = { version = "3.1", features = ["text"] }
+# Used for hostname, but I'd like to add helpers for things like distro, desktop env, etc.
+whoami = "2.1"
+indexmap = "2.14"
+comfy-table = "7.2"
+
+# Templating
+minijinja = { version = "2.19", features = [] }
+
+[dev-dependencies]
+tempfile = "3.27"
+assert_cmd = "2.2"
+predicates = "3.1"
