@@ -1,5 +1,3 @@
-#![feature(error_generic_member_access)]
-
 pub mod cli;
 pub mod core;
 pub mod error;

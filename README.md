@@ -33,7 +33,7 @@ or extend variables defined in `config.lua`.
 ## Quick Start
 
 ```sh
-# Initialise a new dotfile repo in the current directory
+# Initialize a new dotfile repo in the current directory
 df init
 
 # Edit config.lua to define your modules, then activate some in local.lua

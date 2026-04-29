@@ -37,7 +37,7 @@ pub enum Error {
     #[error("IO error {context}: {source}")]
     IoError {
         context: String,
-        #[backtrace]
+        #[source]
         source:  std::io::Error,
     },
     #[error(transparent)]
