@@ -12,7 +12,7 @@
 
 local modules = {
     {%- for module in active_modules %}
-    { {{ module }} },
+    "{{ module }}",
     {%- endfor %}
 }
 local vars = {}
