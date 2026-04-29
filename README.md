@@ -6,11 +6,15 @@ variables, and react to the current machine's environment.
 
 ## Installation
 
-Requires Rust 1.85.0 or later.
-
-```sh
-cargo install --locked --git https://github.com/tehbilly/df
-```
+- Download a binary for your platform from [releases](https://github.com/tehbilly/df/releases).
+- Using `cargo install`:
+  ```shell
+  cargo install --locked --git https://github.com/tehbilly/df
+  ```
+- Or with [cargo binstall](https://github.com/cargo-bins/cargo-binstall):
+  ```shell
+  cargo binstall [--locked] --git https://github.com/tehbilly/df df
+  ```
 
 ## Concepts
 
@@ -230,8 +234,7 @@ return {
 ### `df init [DIR]`
 
 Bootstraps a dotfile repository with starter `config.lua` and `local.lua`
-files. Updates `.gitignore` to exclude `local.lua` and the `.backups/`
-directory. Defaults to the current directory.
+files. Defaults to the current directory.
 
 ### `df apply`
 
@@ -282,9 +285,3 @@ All subcommands accept these flags:
   -c, --config-path <FILE> Path to local.lua (default: <source-dir>/local.lua)
   -v, --verbose            Enable debug logging (-vv for trace)
 ```
-
-## TODOs
-
-- [ ] Test `clean` behaviour on Windows with directory symlink entries (`fs::remove_file` vs `fs::remove_dir`)
-- [ ] Interactive TUI
-    - It's not really needed, but brother I _want_ it

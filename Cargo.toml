@@ -4,6 +4,7 @@ description = "A Lua-powered dotfile manager"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.85.0"
+repository = "https://github.com/tehbilly/df"
 
 [dependencies]
 tracing = "0.1"
@@ -50,3 +51,13 @@ lto = true
 codegen-units = 1
 opt-level = 3
 panic = "abort"
+
+# Be explicit about metadata for binstall
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ version }-{ target }.{ archive-format }"
+bin-dir = "{ bin }{ binary-ext }"
+pkg-fmt = "tgz"
+
+# Windows gets a zip
+[package.metadata.binstall.overrides.'cfg(target_os = "windows")']
+pkg-fmt = "zip"
