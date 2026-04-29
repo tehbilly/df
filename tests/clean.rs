@@ -2,10 +2,10 @@ mod helpers;
 
 fn setup_with_orphan(env: &helpers::TempDotfiles) {
     // Deploy two modules, then re-apply with only one active
-    std::fs::write(env.repo_dir.path().join("a_file"), "a").unwrap();
-    std::fs::write(env.repo_dir.path().join("b_file"), "b").unwrap();
+    std::fs::write(env.repo_dir().join("a_file"), "a").unwrap();
+    std::fs::write(env.repo_dir().join("b_file"), "b").unwrap();
     std::fs::write(
-        env.repo_dir.path().join("config.lua"),
+        env.repo_dir().join("config.lua"),
         r#"return {
             modules = {
                 mod_a = { files = { { src = "a_file", dst = ".a" } } },
@@ -16,7 +16,7 @@ fn setup_with_orphan(env: &helpers::TempDotfiles) {
     .unwrap();
     // First apply: both modules active
     std::fs::write(
-        env.repo_dir.path().join("local.lua"),
+        env.repo_dir().join("local.lua"),
         r#"return { modules = { "mod_a", "mod_b" } }"#,
     )
     .unwrap();
@@ -24,7 +24,7 @@ fn setup_with_orphan(env: &helpers::TempDotfiles) {
 
     // Second apply: only mod_a active — mod_b becomes orphaned
     std::fs::write(
-        env.repo_dir.path().join("local.lua"),
+        env.repo_dir().join("local.lua"),
         r#"return { modules = { "mod_a" } }"#,
     )
     .unwrap();

@@ -4,7 +4,7 @@ mod helpers;
 fn list_shows_active_and_inactive_modules() {
     let env = helpers::TempDotfiles::new();
     std::fs::write(
-        env.repo_dir.path().join("config.lua"),
+        env.repo_dir().join("config.lua"),
         r#"return {
             modules = {
                 base   = { files = { "shell/" } },
@@ -14,7 +14,7 @@ fn list_shows_active_and_inactive_modules() {
     )
     .unwrap();
     std::fs::write(
-        env.repo_dir.path().join("local.lua"),
+        env.repo_dir().join("local.lua"),
         r#"return { modules = { "base" } }"#,
     )
     .unwrap();

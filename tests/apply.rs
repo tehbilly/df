@@ -1,10 +1,10 @@
 mod helpers;
 
 fn setup_basic(env: &helpers::TempDotfiles) {
-    std::fs::create_dir_all(env.repo_dir.path().join("shell")).unwrap();
-    std::fs::write(env.repo_dir.path().join("shell/aliases"), "alias ll='ls -la'").unwrap();
+    std::fs::create_dir_all(env.repo_dir().join("shell")).unwrap();
+    std::fs::write(env.repo_dir().join("shell/aliases"), "alias ll='ls -la'").unwrap();
     std::fs::write(
-        env.repo_dir.path().join("config.lua"),
+        env.repo_dir().join("config.lua"),
         r#"return {
             modules = {
                 base = { files = { { src = "shell/aliases", dst = ".config/shell/aliases" } } }
@@ -13,7 +13,7 @@ fn setup_basic(env: &helpers::TempDotfiles) {
     )
     .unwrap();
     std::fs::write(
-        env.repo_dir.path().join("local.lua"),
+        env.repo_dir().join("local.lua"),
         r#"return { modules = { "base" } }"#,
     )
     .unwrap();
@@ -24,16 +24,16 @@ fn apply_creates_symlink_at_expected_destination() {
     let env = helpers::TempDotfiles::new();
     setup_basic(&env);
     env.cmd().arg("apply").assert().success();
-    let dst = env.output_dir.path().join(".config/shell/aliases");
+    let dst = env.output_dir().join(".config/shell/aliases");
     assert!(dst.is_symlink());
 }
 
 #[test]
 fn apply_template_uses_local_var_override() {
     let env = helpers::TempDotfiles::new();
-    std::fs::write(env.repo_dir.path().join("gitconfig"), "email = {{ email }}").unwrap();
+    std::fs::write(env.repo_dir().join("gitconfig"), "email = {{ email }}").unwrap();
     std::fs::write(
-        env.repo_dir.path().join("config.lua"),
+        env.repo_dir().join("config.lua"),
         r#"return {
             modules = {
                 git = {
@@ -45,7 +45,7 @@ fn apply_template_uses_local_var_override() {
     )
     .unwrap();
     std::fs::write(
-        env.repo_dir.path().join("local.lua"),
+        env.repo_dir().join("local.lua"),
         r#"return { modules = { "git" }, vars = { email = "work@company.com" } }"#,
     )
     .unwrap();
@@ -60,7 +60,7 @@ fn apply_skips_externally_modified_file_without_force() {
     setup_basic(&env);
     std::fs::write(
         // Use copy instead of symlink for this test
-        env.repo_dir.path().join("config.lua"),
+        env.repo_dir().join("config.lua"),
         r#"return {
           modules = {
               base = { files = { { src = "shell/aliases", dst = ".config/shell/aliases", type = "copy" } } }
@@ -71,7 +71,7 @@ fn apply_skips_externally_modified_file_without_force() {
     // First apply
     env.cmd().arg("apply").assert().success();
     // User edits the deployed file
-    let dst = env.output_dir.path().join(".config/shell/aliases");
+    let dst = env.output_dir().join(".config/shell/aliases");
     std::fs::write(&dst, "user modification").unwrap();
     // Second apply without --force: should warn but not overwrite
     env.cmd().arg("apply").assert().success();
@@ -84,7 +84,7 @@ fn apply_force_backs_up_and_overwrites_externally_modified() {
     setup_basic(&env);
     std::fs::write(
         // Use copy instead of symlink for this test
-        env.repo_dir.path().join("config.lua"),
+        env.repo_dir().join("config.lua"),
         r#"return {
           modules = {
               base = { files = { { src = "shell/aliases", dst = ".config/shell/aliases", type = "copy" } } }
@@ -93,7 +93,7 @@ fn apply_force_backs_up_and_overwrites_externally_modified() {
     )
     .unwrap();
     env.cmd().arg("apply").assert().success();
-    let dst = env.output_dir.path().join(".config/shell/aliases");
+    let dst = env.output_dir().join(".config/shell/aliases");
     std::fs::write(&dst, "user modification").unwrap();
 
     env.cmd().args(["apply", "--force"]).assert().success();
@@ -103,7 +103,7 @@ fn apply_force_backs_up_and_overwrites_externally_modified() {
     assert_eq!(deployed, "alias ll='ls -la'");
 
     // .backups/ dir contains the user's modification
-    let backups = env.repo_dir.path().join(".backups");
+    let backups = env.repo_dir().join(".backups");
     let backed_up = std::fs::read_dir(&backups)
         .unwrap()
         .next()
@@ -117,14 +117,14 @@ fn apply_force_backs_up_and_overwrites_externally_modified() {
 #[test]
 fn apply_dep_post_hook_runs_before_dependent_pre_hook() {
     let env = helpers::TempDotfiles::new();
-    let log = env.output_dir.path().join("hook_log.txt");
+    let log = env.output_dir().join("hook_log.txt");
     let log_str = log.to_str().unwrap();
 
-    std::fs::write(env.repo_dir.path().join("base_file"), "").unwrap();
-    std::fs::write(env.repo_dir.path().join("dep_file"), "").unwrap();
+    std::fs::write(env.repo_dir().join("base_file"), "").unwrap();
+    std::fs::write(env.repo_dir().join("dep_file"), "").unwrap();
 
     std::fs::write(
-        env.repo_dir.path().join("config.lua"),
+        env.repo_dir().join("config.lua"),
         format!(
             r#"return {{
             modules = {{
@@ -144,7 +144,7 @@ fn apply_dep_post_hook_runs_before_dependent_pre_hook() {
     )
     .unwrap();
     std::fs::write(
-        env.repo_dir.path().join("local.lua"),
+        env.repo_dir().join("local.lua"),
         r#"return { modules = { "base", "top" } }"#,
     )
     .unwrap();
@@ -160,11 +160,11 @@ fn apply_dep_post_hook_runs_before_dependent_pre_hook() {
 #[test]
 fn apply_force_dep_failure_still_skips_dependent() {
     let env = helpers::TempDotfiles::new();
-    std::fs::write(env.repo_dir.path().join("a_file"), "").unwrap();
-    std::fs::write(env.repo_dir.path().join("b_file"), "").unwrap();
+    std::fs::write(env.repo_dir().join("a_file"), "").unwrap();
+    std::fs::write(env.repo_dir().join("b_file"), "").unwrap();
 
     std::fs::write(
-        env.repo_dir.path().join("config.lua"),
+        env.repo_dir().join("config.lua"),
         r#"return {
             modules = {
                 dep = {
@@ -180,7 +180,7 @@ fn apply_force_dep_failure_still_skips_dependent() {
     )
     .unwrap();
     std::fs::write(
-        env.repo_dir.path().join("local.lua"),
+        env.repo_dir().join("local.lua"),
         r#"return { modules = { "dep", "top" } }"#,
     )
     .unwrap();
@@ -194,11 +194,11 @@ fn apply_force_dep_failure_still_skips_dependent() {
 #[test]
 fn apply_module_flag_does_not_orphan_other_modules() {
     let env = helpers::TempDotfiles::new();
-    std::fs::write(env.repo_dir.path().join("a"), "").unwrap();
-    std::fs::write(env.repo_dir.path().join("b"), "").unwrap();
+    std::fs::write(env.repo_dir().join("a"), "").unwrap();
+    std::fs::write(env.repo_dir().join("b"), "").unwrap();
 
     std::fs::write(
-        env.repo_dir.path().join("config.lua"),
+        env.repo_dir().join("config.lua"),
         r#"return {
             modules = {
                 mod_a = { files = { "a" } },
@@ -208,7 +208,7 @@ fn apply_module_flag_does_not_orphan_other_modules() {
     )
     .unwrap();
     std::fs::write(
-        env.repo_dir.path().join("local.lua"),
+        env.repo_dir().join("local.lua"),
         r#"return { modules = { "mod_a", "mod_b" } }"#,
     )
     .unwrap();
@@ -233,11 +233,11 @@ fn apply_module_flag_does_not_orphan_other_modules() {
 #[test]
 fn apply_module_flag_only_deploys_named_module() {
     let env = helpers::TempDotfiles::new();
-    std::fs::write(env.repo_dir.path().join("a"), "content_a").unwrap();
-    std::fs::write(env.repo_dir.path().join("b"), "content_b").unwrap();
+    std::fs::write(env.repo_dir().join("a"), "content_a").unwrap();
+    std::fs::write(env.repo_dir().join("b"), "content_b").unwrap();
 
     std::fs::write(
-        env.repo_dir.path().join("config.lua"),
+        env.repo_dir().join("config.lua"),
         r#"return {
               modules = {
                   mod_a = { files = { { src = "a", dst = "a", type = "copy" } } },
@@ -247,7 +247,7 @@ fn apply_module_flag_only_deploys_named_module() {
     )
     .unwrap();
     std::fs::write(
-        env.repo_dir.path().join("local.lua"),
+        env.repo_dir().join("local.lua"),
         r#"return { modules = { "mod_a", "mod_b" } }"#,
     )
     .unwrap();

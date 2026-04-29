@@ -1,9 +1,9 @@
 mod helpers;
 
 fn setup_and_apply(env: &helpers::TempDotfiles) {
-    std::fs::write(env.repo_dir.path().join("gitconfig"), "[user]\n  name = Test").unwrap();
+    std::fs::write(env.repo_dir().join("gitconfig"), "[user]\n  name = Test").unwrap();
     std::fs::write(
-        env.repo_dir.path().join("config.lua"),
+        env.repo_dir().join("config.lua"),
         r#"return {
             modules = {
                 git = { files = { { src = "gitconfig", dst = ".gitconfig", type = "copy" } } }
@@ -12,7 +12,7 @@ fn setup_and_apply(env: &helpers::TempDotfiles) {
     )
     .unwrap();
     std::fs::write(
-        env.repo_dir.path().join("local.lua"),
+        env.repo_dir().join("local.lua"),
         r#"return { modules = { "git" } }"#,
     )
     .unwrap();
@@ -33,7 +33,7 @@ fn status_shows_modified_after_external_change() {
     let env = helpers::TempDotfiles::new();
     setup_and_apply(&env);
     // Modify the deployed file
-    std::fs::write(env.output_dir.path().join(".gitconfig"), "modified").unwrap();
+    std::fs::write(env.output_dir().join(".gitconfig"), "modified").unwrap();
 
     let output = env.cmd().arg("status").assert().success();
     let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
