@@ -12,11 +12,7 @@ fn setup_basic(env: &helpers::TempDotfiles) {
         }"#,
     )
     .unwrap();
-    std::fs::write(
-        env.repo_dir().join("local.lua"),
-        r#"return { modules = { "base" } }"#,
-    )
-    .unwrap();
+    std::fs::write(env.repo_dir().join("local.lua"), r#"return { modules = { "base" } }"#).unwrap();
 }
 
 #[test]

@@ -23,11 +23,7 @@ fn setup_with_orphan(env: &helpers::TempDotfiles) {
     env.cmd().arg("apply").assert().success();
 
     // Second apply: only mod_a active — mod_b becomes orphaned
-    std::fs::write(
-        env.repo_dir().join("local.lua"),
-        r#"return { modules = { "mod_a" } }"#,
-    )
-    .unwrap();
+    std::fs::write(env.repo_dir().join("local.lua"), r#"return { modules = { "mod_a" } }"#).unwrap();
     env.cmd().arg("apply").assert().success();
 }
 

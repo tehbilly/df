@@ -9,11 +9,15 @@ use clap::{
     Subcommand,
 };
 use tracing::{
+    info,
     level_filters::LevelFilter,
     warn,
 };
 
-use crate::error::IoContext;
+use crate::error::{
+    Error,
+    IoContext,
+};
 
 pub mod apply;
 pub mod clean;
@@ -21,6 +25,7 @@ pub mod diff;
 pub mod init;
 pub mod list;
 pub mod status;
+mod tui;
 
 fn get_default_output_dir() -> PathBuf {
     dir_spec::home().unwrap_or_else(|| std::env::home_dir().expect("Home directory not found"))
@@ -114,9 +119,6 @@ where
     I: IntoIterator<Item = T>,
     T: Into<OsString> + Clone,
 {
-    // Set up nicer errors for users
-    color_eyre::install()?;
-
     let app = Cli::parse_from(args);
 
     // Set up tracing subscriber based on requested verbosity
@@ -129,17 +131,53 @@ where
         })
         .init();
 
+    println!("Running command: {:?}", &app.command);
     match app.command {
         Commands::Init { target_dir } => {
-            let path = target_dir
-                .clone()
-                .unwrap_or_else(|| std::env::current_dir().expect("Can not get current dir"))
-                .canonicalize()
-                .io_err(format!("canonicalizing path: {}", match target_dir {
-                    None => String::from("<unknown>"),
-                    Some(target_dir) => target_dir.display().to_string(),
-                }))?;
-            init::run(&app.global, path)?;
+            println!("init targeting: {:?}", target_dir);
+
+            let path = match target_dir {
+                Some(path) => path,
+                None => std::env::current_dir().io_err("failed to get current directory")?,
+            };
+
+            if path.exists() && !path.is_dir() {
+                return Err(Error::ErrorMessage(format!(
+                    "path exists and is not a directory: {}",
+                    path.display()
+                )));
+            }
+
+            // Path does not exist or is empty: scaffold new dotfile repo
+            if !path.exists()
+                || (path.is_dir()
+                    && path
+                        .read_dir()
+                        .io_err(format!("unable to read dir {}", path.display()))?
+                        .next()
+                        .is_none())
+            {
+                info!("Scaffolding new dotfile directory: {}", path.display());
+                init::full_scaffold(&app.global, path)?;
+                return Ok(());
+            }
+
+            // This looks to already be initialized
+            if path.join("config.lua").exists() && path.join("local.lua").exists() {
+                // warn!("Directory already contains config.lua and local.lua: nothing to do");
+                return Err(Error::ErrorMessage(format!(
+                    "path appears to already be initialized: {}",
+                    path.display()
+                )));
+            }
+
+            // Path exists but is empty? Also scaffold
+            if path.join("config.lua").exists() {
+                init::setup_local_config(&app.global, path)?;
+                return Ok(());
+            }
+
+            info!("Nothing to initialize at {}", path.display());
         },
         Commands::Apply { module, dry_run, force } => {
             apply::run(&app.global, module, dry_run, force)?;

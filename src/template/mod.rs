@@ -8,9 +8,7 @@ use minijinja::{
 pub(crate) fn render_template(content: &str, vars: &HashMap<String, serde_json::Value>) -> crate::core::Result<String> {
     let mut env = Environment::new();
     env.set_undefined_behavior(UndefinedBehavior::Strict);
-    env.add_template("template", content)?;
-    let tmpl = env.get_template("template")?;
-    let result = tmpl.render(vars)?;
+    let result = env.render_str(content, vars)?;
     Ok(result)
 }
 

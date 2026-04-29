@@ -1,9 +1,12 @@
-use std::path::{Path, PathBuf};
+use std::path::{
+    Path,
+    PathBuf,
+};
 
 use tempfile::TempDir;
 
 pub struct TempDotfiles {
-    root_dir:       TempDir,
+    root_dir: TempDir,
     // pub repo_dir:   TempDir,
     // pub state_dir:  TempDir,
     // pub output_dir: TempDir,

@@ -17,11 +17,7 @@ fn diff_shows_unified_diff_for_modified_template() {
         }"#,
     )
     .unwrap();
-    std::fs::write(
-        env.repo_dir().join("local.lua"),
-        r#"return { modules = { "tmux" } }"#,
-    )
-    .unwrap();
+    std::fs::write(env.repo_dir().join("local.lua"), r#"return { modules = { "tmux" } }"#).unwrap();
 
     env.cmd().arg("apply").assert().success();
 

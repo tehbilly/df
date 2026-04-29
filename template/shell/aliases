@@ -1,0 +1,9 @@
+# Navigation
+alias ..='cd ..'
+alias ...='cd ../..'
+alias ll='ls -lah'
+
+# Safety nets
+alias rm='rm -i'
+alias cp='cp -i'
+alias mv='mv -i'

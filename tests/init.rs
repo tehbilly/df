@@ -6,7 +6,7 @@ fn init_empty_dir_creates_both_config_files_and_gitignore() {
     let mut cmd = env.cmd();
     let assert = cmd.arg("init").arg(env.output_dir()).assert();
 
-    let output =assert.get_output();
+    let output = assert.get_output();
     println!("{}", output.status);
     println!("stdout:\n{}", String::from_utf8_lossy(&output.stdout));
     println!("stderr:\n{}", String::from_utf8_lossy(&output.stderr));

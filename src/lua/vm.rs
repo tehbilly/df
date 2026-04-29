@@ -6,6 +6,8 @@ use std::{
 use mlua::{
     ExternalResult,
     Lua,
+    MultiValue,
+    Value,
 };
 
 pub(crate) fn create_vm() -> crate::core::Result<Lua> {
@@ -69,12 +71,28 @@ fn is_good_which(path: PathBuf) -> bool {
 
     false
 }
+fn dotfiles_env(_lua: &Lua, args: MultiValue) -> mlua::Result<Option<String>> {
+    let mut args = args.into_iter();
 
-fn dotfiles_env(_lua: &Lua, name: String) -> mlua::Result<Option<String>> {
-    if let Ok(v) = env::var(name) {
-        Ok(Some(v))
-    } else {
-        Ok(None)
+    let arg_a = args.next();
+    let arg_b = args.next();
+
+    match (arg_a, arg_b) {
+        (Some(Value::String(name)), None) => {
+            if let Ok(v) = env::var(name.to_string_lossy()) {
+                Ok(Some(v))
+            } else {
+                Ok(None)
+            }
+        },
+        (Some(Value::String(name)), Some(Value::String(default))) => {
+            if let Ok(v) = env::var(name.to_string_lossy()) {
+                Ok(Some(v))
+            } else {
+                Ok(Some(default.to_string_lossy()))
+            }
+        },
+        _ => Ok(None),
     }
 }
 

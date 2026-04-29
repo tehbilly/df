@@ -3,8 +3,6 @@ use std::path::{
     StripPrefixError,
 };
 
-use color_eyre::Report;
-
 pub(crate) trait IoContext<T> {
     fn io_err(self, context: impl Into<String>) -> Result<T, Error>;
 }
@@ -48,12 +46,6 @@ pub enum Error {
     TemplateError(#[from] minijinja::Error),
     #[error(transparent)]
     SerdeJsonError(#[from] serde_json::Error),
-}
-
-impl From<Report> for Error {
-    fn from(value: Report) -> Self {
-        Error::ErrorMessage(value.to_string())
-    }
 }
 
 impl From<StripPrefixError> for Error {

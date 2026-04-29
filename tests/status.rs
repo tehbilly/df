@@ -11,11 +11,7 @@ fn setup_and_apply(env: &helpers::TempDotfiles) {
         }"#,
     )
     .unwrap();
-    std::fs::write(
-        env.repo_dir().join("local.lua"),
-        r#"return { modules = { "git" } }"#,
-    )
-    .unwrap();
+    std::fs::write(env.repo_dir().join("local.lua"), r#"return { modules = { "git" } }"#).unwrap();
     env.cmd().arg("apply").assert().success();
 }
 

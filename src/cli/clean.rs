@@ -20,10 +20,6 @@ use crossterm::{
         Stylize,
         style,
     },
-    terminal::{
-        disable_raw_mode,
-        enable_raw_mode,
-    },
 };
 use tracing::{
     debug,
@@ -31,7 +27,10 @@ use tracing::{
 };
 
 use crate::{
-    cli::GlobalFlags,
+    cli::{
+        GlobalFlags,
+        tui::RawMode,
+    },
     core::state::{
         ManagedEntry,
         State,
@@ -112,21 +111,5 @@ fn confirm<S: AsRef<str>>(prompt: S) -> crate::core::Result<bool> {
 
             return Ok(matches!(code, KeyCode::Char('y') | KeyCode::Char('Y')));
         }
-    }
-}
-
-// Guard so that raw mode is disabled if something panics
-struct RawMode;
-
-impl RawMode {
-    fn enter() -> io::Result<Self> {
-        enable_raw_mode()?;
-        Ok(Self)
-    }
-}
-
-impl Drop for RawMode {
-    fn drop(&mut self) {
-        let _ = disable_raw_mode();
     }
 }

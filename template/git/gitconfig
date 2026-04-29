@@ -1,0 +1,19 @@
+[user]
+    name  = {{ name }}
+    email = {{ email }}
+
+[core]
+    editor     = vim
+    autocrlf   = input
+    whitespace = fix
+
+[pull]
+    rebase = true
+
+[push]
+    autoSetupRemote = true
+
+[alias]
+    st  = status
+    co  = checkout
+    lg  = log --oneline --graph --decorate

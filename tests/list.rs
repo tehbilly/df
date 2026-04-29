@@ -13,11 +13,7 @@ fn list_shows_active_and_inactive_modules() {
         }"#,
     )
     .unwrap();
-    std::fs::write(
-        env.repo_dir().join("local.lua"),
-        r#"return { modules = { "base" } }"#,
-    )
-    .unwrap();
+    std::fs::write(env.repo_dir().join("local.lua"), r#"return { modules = { "base" } }"#).unwrap();
 
     let output = env.cmd().arg("list").assert().success();
     let stdout = String::from_utf8(output.get_output().stdout.clone()).unwrap();
