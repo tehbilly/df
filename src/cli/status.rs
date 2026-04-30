@@ -1,3 +1,8 @@
+use std::{
+    collections::HashMap,
+    path::Path,
+};
+
 use comfy_table::Table;
 
 use crate::{
@@ -36,9 +41,29 @@ pub(crate) fn run(flags: &GlobalFlags) -> crate::core::Result<()> {
     let plan = WorkPlan::build(&active_modules, &flags.source_dir, &flags.output_dir)?;
     let state = State::load(flags.state_dir.join("state.json"))?;
 
-    for (module_name, ops) in plan.ops().iter() {
-        let mut table = Table::new();
-        table.set_header(vec!["Status", "Source", "Target"]);
+    let module_color = vec![
+        comfy_table::Color::Cyan,
+        comfy_table::Color::Green,
+        comfy_table::Color::Blue,
+        comfy_table::Color::Magenta,
+        comfy_table::Color::DarkCyan,
+        comfy_table::Color::DarkBlue,
+        comfy_table::Color::DarkGreen,
+        comfy_table::Color::DarkMagenta,
+    ];
+
+    // Lets us map module names to colors deterministically
+    let color_map = plan
+        .ops()
+        .keys()
+        .zip(module_color.iter().cycle())
+        .map(|(item, &color)| (item, color))
+        .collect::<HashMap<_, _>>();
+
+    let mut table = Table::new();
+    table.load_preset(comfy_table::presets::UTF8_BORDERS_ONLY);
+    table.set_header(vec!["Module", "Status", "Source", "Target"]);
+    for (module_name, ops) in plan.ops().iter().filter(|(_, ops)| !ops.is_empty()) {
         for op in ops {
             let item = ReconcileItem::for_op(op, &state)?;
             let status_cell = match item.status {
@@ -53,22 +78,39 @@ pub(crate) fn run(flags: &GlobalFlags) -> crate::core::Result<()> {
 
             let source_cell = match item.status {
                 ReconcileStatus::Deploy | ReconcileStatus::SourceChanged => {
-                    comfy_table::Cell::new(item.op.src.display()).fg(comfy_table::Color::Green)
+                    comfy_table::Cell::new(path_rel_to_home(&item.op.src)).fg(comfy_table::Color::Green)
                 },
-                _ => comfy_table::Cell::new(item.op.src.display()),
+                _ => comfy_table::Cell::new(path_rel_to_home(&item.op.src)),
             };
 
             let target_cell = match item.status {
                 ReconcileStatus::ExternallyModified | ReconcileStatus::Unmanaged => {
-                    comfy_table::Cell::new(item.op.dst.display()).fg(comfy_table::Color::Red)
+                    comfy_table::Cell::new(path_rel_to_home(item.op.dst)).fg(comfy_table::Color::Red)
                 },
-                _ => comfy_table::Cell::new(item.op.dst.display()),
+                _ => comfy_table::Cell::new(path_rel_to_home(item.op.dst)),
             };
-            table.add_row(vec![status_cell, source_cell, target_cell]);
+            table.add_row(vec![
+                comfy_table::Cell::new(module_name).fg(color_map[&module_name]),
+                status_cell,
+                source_cell,
+                target_cell,
+            ]);
         }
-        println!("== Module: {}", module_name);
-        println!("{}", table);
+        // println!("== Module: {}", module_name);
     }
+    println!("{}", table);
 
     Ok(())
+}
+
+fn path_rel_to_home<P: AsRef<Path>>(path: P) -> String {
+    let path = path.as_ref();
+    if let Some(home_dir) = dir_spec::home()
+        // && home_dir.ends_with(path)
+        && let Ok(rel_path) = path.strip_prefix(&home_dir)
+    {
+        format!("~/{}", rel_path.display())
+    } else {
+        path.to_string_lossy().to_string()
+    }
 }

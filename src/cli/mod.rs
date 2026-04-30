@@ -131,7 +131,6 @@ where
         })
         .init();
 
-    println!("Running command: {:?}", &app.command);
     match app.command {
         Commands::Init { target_dir } => {
             println!("init targeting: {:?}", target_dir);
