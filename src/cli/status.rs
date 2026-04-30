@@ -1,12 +1,12 @@
-use std::{
-    collections::HashMap,
-    path::Path,
-};
+use std::collections::HashMap;
 
 use comfy_table::Table;
 
 use crate::{
-    cli::GlobalFlags,
+    cli::{
+        GlobalFlags,
+        tui::path_rel_to_home,
+    },
     core::{
         graph::DependencyGraph,
         plan::WorkPlan,
@@ -41,7 +41,7 @@ pub(crate) fn run(flags: &GlobalFlags) -> crate::core::Result<()> {
     let plan = WorkPlan::build(&active_modules, &flags.source_dir, &flags.output_dir)?;
     let state = State::load(flags.state_dir.join("state.json"))?;
 
-    let module_color = vec![
+    let module_color = [
         comfy_table::Color::Cyan,
         comfy_table::Color::Green,
         comfy_table::Color::Blue,
@@ -101,16 +101,4 @@ pub(crate) fn run(flags: &GlobalFlags) -> crate::core::Result<()> {
     println!("{}", table);
 
     Ok(())
-}
-
-fn path_rel_to_home<P: AsRef<Path>>(path: P) -> String {
-    let path = path.as_ref();
-    if let Some(home_dir) = dir_spec::home()
-        // && home_dir.ends_with(path)
-        && let Ok(rel_path) = path.strip_prefix(&home_dir)
-    {
-        format!("~/{}", rel_path.display())
-    } else {
-        path.to_string_lossy().to_string()
-    }
 }

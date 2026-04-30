@@ -119,7 +119,25 @@ where
     I: IntoIterator<Item = T>,
     T: Into<OsString> + Clone,
 {
-    let app = Cli::parse_from(args);
+    let mut app = Cli::parse_from(args);
+
+    app.global.source_dir = app
+        .global
+        .source_dir
+        .canonicalize()
+        .io_err(format!("source dir not found: {}", app.global.source_dir.display()))?;
+
+    app.global.output_dir = app
+        .global
+        .output_dir
+        .canonicalize()
+        .io_err(format!("output dir not found: {}", app.global.output_dir.display()))?;
+
+    app.global.state_dir = app
+        .global
+        .state_dir
+        .canonicalize()
+        .io_err(format!("state dir not found: {}", app.global.output_dir.display()))?;
 
     // Set up tracing subscriber based on requested verbosity
     tracing_subscriber::fmt::fmt()

@@ -1,10 +1,15 @@
+use std::path::Path;
+
 use crossterm::{
+    ExecutableCommand,
     event,
     event::{
         Event,
         KeyCode,
     },
     terminal::{
+        EnterAlternateScreen,
+        LeaveAlternateScreen,
         disable_raw_mode,
         enable_raw_mode,
     },
@@ -46,6 +51,41 @@ impl RawMode {
 
 impl Drop for RawMode {
     fn drop(&mut self) {
+        let _ = disable_raw_mode();
+    }
+}
+
+#[allow(unused)]
+enum AltRawModeTarget {
+    Stdout,
+    Stderr,
+}
+
+/// RawMode guard for alt screen
+pub(crate) struct AltRawMode {
+    target: AltRawModeTarget,
+}
+
+impl AltRawMode {
+    pub(crate) fn stdout() -> std::io::Result<Self> {
+        enable_raw_mode()?;
+        std::io::stdout().execute(EnterAlternateScreen)?;
+        Ok(Self {
+            target: AltRawModeTarget::Stdout,
+        })
+    }
+}
+
+impl Drop for AltRawMode {
+    fn drop(&mut self) {
+        match self.target {
+            AltRawModeTarget::Stdout => {
+                let _ = std::io::stdout().execute(LeaveAlternateScreen);
+            },
+            AltRawModeTarget::Stderr => {
+                let _ = std::io::stderr().execute(LeaveAlternateScreen);
+            },
+        }
         let _ = disable_raw_mode();
     }
 }
@@ -106,15 +146,15 @@ impl MultiSelect {
             return Ok(Vec::new());
         }
 
-        // Raw mode, but don't enter alternate screen
-        let _guard = RawMode::enter().io_err("unable to enter raw mode")?;
-
         let num_lines = self.items.len() + 1;
         let backend = CrosstermBackend::new(std::io::stdout());
         let mut terminal = Terminal::with_options(backend, TerminalOptions {
             viewport: Viewport::Inline(num_lines as u16),
         })
         .io_err("unable to create terminal")?;
+
+        // Raw mode, but don't enter alternate screen
+        let _guard = RawMode::enter().io_err("unable to enter raw mode")?;
 
         // Run the app
         self.run_app(&mut terminal)?;
@@ -180,5 +220,26 @@ impl MultiSelect {
                 };
             }
         }
+    }
+}
+
+pub(crate) fn path_rel_to<P: AsRef<Path>>(path: P, rel_to: P) -> String {
+    let path = path.as_ref();
+    let rel_to = rel_to.as_ref();
+    if let Ok(rel_path) = path.strip_prefix(rel_to) {
+        rel_path.display().to_string()
+    } else {
+        path.display().to_string()
+    }
+}
+
+pub(crate) fn path_rel_to_home<P: AsRef<Path>>(path: P) -> String {
+    let path = path.as_ref();
+    if let Some(home_dir) = dir_spec::home()
+        && let Ok(rel_path) = path.strip_prefix(home_dir)
+    {
+        format!("~/{}", rel_path.display())
+    } else {
+        path.to_string_lossy().to_string()
     }
 }
