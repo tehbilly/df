@@ -7,11 +7,9 @@ use tempfile::TempDir;
 
 pub struct TempDotfiles {
     root_dir: TempDir,
-    // pub repo_dir:   TempDir,
-    // pub state_dir:  TempDir,
-    // pub output_dir: TempDir,
 }
 
+#[allow(unused)]
 impl TempDotfiles {
     pub fn new() -> Self {
         let mut root_dir = tempfile::tempdir().expect("unable to create temp dir");

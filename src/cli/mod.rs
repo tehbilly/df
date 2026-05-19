@@ -104,7 +104,7 @@ pub(crate) enum Commands {
 }
 
 #[derive(Parser)]
-#[command(name = "df")]
+#[command(name = "df", version)]
 #[command(about = "A(nother) dotfile manager")]
 pub(crate) struct Cli {
     #[clap(flatten)]

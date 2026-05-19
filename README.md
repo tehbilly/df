@@ -285,3 +285,13 @@ All subcommands accept these flags:
   -c, --config-path <FILE> Path to local.lua (default: <source-dir>/local.lua)
   -v, --verbose            Enable debug logging (-vv for trace)
 ```
+
+## Wishlist
+
+Things I'd like to add at some point
+
+- [ ] Repo-specific `local.lua` template for setting up new machines. Should be used when present instead of default.
+  - Also a way to prompt for var overrides
+- [ ] Clean(er) way to make aliases for groups of configs 
+- [ ] Tests/filters/etc. for helpers in templates
+- [ ] A way to test what modules are active

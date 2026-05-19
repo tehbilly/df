@@ -24,7 +24,7 @@ use crate::{
     error::IoContext,
 };
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) enum ReconcileStatus {
     Deploy,
     Clean, // TODO: Maybe something like InSync?

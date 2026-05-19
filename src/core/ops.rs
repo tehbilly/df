@@ -3,6 +3,7 @@ use std::{
     path::Path,
 };
 
+use serde::Serialize;
 use tracing::info;
 
 use crate::{
@@ -16,7 +17,7 @@ use crate::{
 
 pub(crate) fn perform_op(
     op: &PlannedOp,
-    vars: &HashMap<String, serde_json::Value>,
+    vars: &HashMap<String, impl Serialize>,
     dry_run: bool,
 ) -> crate::core::Result<()> {
     if let Some(parent) = op.dst.parent()
@@ -131,7 +132,8 @@ mod tests {
         std::fs::write(&src, "data").unwrap();
 
         let op = make_op(&src, &dst, EntryType::Symlink);
-        perform_op(&op, &HashMap::new(), false).unwrap();
+        let ctx: HashMap<String, serde_json::Value> = HashMap::new();
+        perform_op(&op, &ctx, false).unwrap();
 
         assert!(dst.is_symlink());
         assert_eq!(std::fs::read_link(&dst).unwrap(), src);
@@ -145,7 +147,8 @@ mod tests {
         std::fs::write(&src, "file content").unwrap();
 
         let op = make_op(&src, &dst, EntryType::Copy);
-        perform_op(&op, &HashMap::new(), false).unwrap();
+        let ctx: HashMap<String, serde_json::Value> = HashMap::new();
+        perform_op(&op, &ctx, false).unwrap();
 
         assert_eq!(std::fs::read_to_string(&dst).unwrap(), "file content");
     }
@@ -174,7 +177,8 @@ mod tests {
         std::fs::write(&src, "content").unwrap();
 
         let op = make_op(&src, &dst, EntryType::Copy);
-        perform_op(&op, &HashMap::new(), true).unwrap();
+        let ctx: HashMap<String, serde_json::Value> = HashMap::new();
+        perform_op(&op, &ctx, true).unwrap();
 
         // dst must not exist after a dry run
         assert!(!dst.exists());
@@ -188,7 +192,8 @@ mod tests {
         std::fs::write(&src, "content").unwrap();
 
         let op = make_op(&src, &dst, EntryType::Copy);
-        perform_op(&op, &HashMap::new(), false).unwrap();
+        let ctx: HashMap<String, serde_json::Value> = HashMap::new();
+        perform_op(&op, &ctx, false).unwrap();
 
         assert!(dst.exists());
     }

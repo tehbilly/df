@@ -1,25 +1,8 @@
-use std::{
-    io,
-    io::{
-        IsTerminal,
-        Write,
-    },
-    path::PathBuf,
-};
+use std::path::PathBuf;
 
-use crossterm::{
-    event::{
-        Event,
-        KeyCode,
-        KeyEvent,
-        KeyEventKind,
-        KeyModifiers,
-        read,
-    },
-    style::{
-        Stylize,
-        style,
-    },
+use crossterm::style::{
+    Stylize,
+    style,
 };
 use tracing::{
     debug,
@@ -29,7 +12,7 @@ use tracing::{
 use crate::{
     cli::{
         GlobalFlags,
-        tui::RawMode,
+        tui::confirm,
     },
     core::state::{
         ManagedEntry,
@@ -50,7 +33,7 @@ pub(crate) fn run(flags: &GlobalFlags, yes: bool) -> crate::core::Result<()> {
             ManagedEntry::Orphaned { module, .. } => {
                 let mut answer = yes;
                 if !answer {
-                    answer = confirm(format!("remove: {}", path.display()))?;
+                    answer = confirm(format!("remove: {}", path.display()), true)?;
                     println!("{}", if answer { "y".green() } else { "n".red() });
                 }
                 let action = if answer {
@@ -81,35 +64,4 @@ pub(crate) fn run(flags: &GlobalFlags, yes: bool) -> crate::core::Result<()> {
     }
 
     Ok(())
-}
-
-fn confirm<S: AsRef<str>>(prompt: S) -> crate::core::Result<bool> {
-    let prompt = prompt.as_ref();
-
-    if !io::stdin().is_terminal() || !io::stdout().is_terminal() {
-        debug!(prompt, "Not a TTY, skipping confirmation");
-        return Ok(false);
-    }
-
-    print!("{prompt} [y/N] ");
-    io::stdout().flush().io_err("unable to flush stdout")?;
-
-    let _guard = RawMode::enter().io_err("unable to enter raw mode")?;
-    loop {
-        if let Event::Key(KeyEvent {
-            code, modifiers, kind, ..
-        }) = read().io_err("reading character")?
-        {
-            if kind != KeyEventKind::Press {
-                continue;
-            }
-
-            // Let ctrl+c bail even in raw mode
-            if modifiers.contains(KeyModifiers::CONTROL) && code == KeyCode::Char('c') {
-                return Err(crate::error::Error::ErrorMessage(String::from("interrupted: ctrl+c")));
-            }
-
-            return Ok(matches!(code, KeyCode::Char('y') | KeyCode::Char('Y')));
-        }
-    }
 }

@@ -1,4 +1,11 @@
-use std::path::Path;
+use std::{
+    io,
+    io::{
+        IsTerminal,
+        Write,
+    },
+    path::Path,
+};
 
 use crossterm::{
     ExecutableCommand,
@@ -6,6 +13,10 @@ use crossterm::{
     event::{
         Event,
         KeyCode,
+        KeyEvent,
+        KeyEventKind,
+        KeyModifiers,
+        read,
     },
     terminal::{
         EnterAlternateScreen,
@@ -35,7 +46,10 @@ use ratatui::{
         ListState,
     },
 };
-use tracing::warn;
+use tracing::{
+    debug,
+    warn,
+};
 
 use crate::error::IoContext;
 
@@ -221,6 +235,57 @@ impl MultiSelect {
             }
         }
     }
+}
+
+/// Ask a yes/no question
+pub(crate) fn confirm<S: AsRef<str>>(prompt: S, default: bool) -> crate::core::Result<bool> {
+    let prompt = prompt.as_ref();
+
+    if !io::stdin().is_terminal() || !io::stdout().is_terminal() {
+        debug!(prompt, "Not a TTY, skipping confirmation");
+        return Ok(false);
+    }
+
+    if default {
+        print!("{prompt} [Y/n] ");
+    } else {
+        print!("{prompt} [y/N] ");
+    }
+    io::stdout().flush().io_err("unable to flush stdout")?;
+
+    let _guard = RawMode::enter().io_err("unable to enter raw mode")?;
+    loop {
+        if let Event::Key(KeyEvent {
+            code, modifiers, kind, ..
+        }) = read().io_err("reading character")?
+        {
+            if kind != KeyEventKind::Press {
+                continue;
+            }
+
+            // Let ctrl+c bail even in raw mode
+            if modifiers.contains(KeyModifiers::CONTROL) && code == KeyCode::Char('c') {
+                return Err(crate::error::Error::ErrorMessage(String::from("interrupted: ctrl+c")));
+            }
+
+            if code == KeyCode::Enter {
+                debug!("Enter was pressed, returning default");
+                return Ok(default);
+            }
+
+            return Ok(matches!(code, KeyCode::Char('y') | KeyCode::Char('Y')));
+        }
+    }
+}
+
+pub(crate) fn prompt<S: AsRef<str>>(prompt: S) -> crate::core::Result<String> {
+    let prompt = prompt.as_ref();
+    print!("{}", prompt);
+    io::stdout().flush().io_err("unable to flush stdout")?;
+    
+    let mut input = String::new();
+    io::stdin().read_line(&mut input).io_err("unable to read input")?;
+    Ok(input.trim().to_string())
 }
 
 pub(crate) fn path_rel_to<P: AsRef<Path>>(path: P, rel_to: P) -> String {

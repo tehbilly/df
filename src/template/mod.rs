@@ -4,10 +4,16 @@ use minijinja::{
     Environment,
     UndefinedBehavior,
 };
+use serde::Serialize;
 
-pub(crate) fn render_template(content: &str, vars: &HashMap<String, serde_json::Value>) -> crate::core::Result<String> {
+pub(crate) fn create_environment<'a>() -> Environment<'a> {
     let mut env = Environment::new();
     env.set_undefined_behavior(UndefinedBehavior::Strict);
+    env
+}
+
+pub(crate) fn render_template<S: Serialize>(content: &str, vars: S) -> crate::core::Result<String> {
+    let env = create_environment();
     let result = env.render_str(content, vars)?;
     Ok(result)
 }
@@ -58,14 +64,16 @@ mod tests {
 
     #[test]
     fn missing_variable_returns_error() {
-        let result = render_template("Hello, {{ missing_var }}!", &HashMap::new());
+        let ctx: HashMap<String, serde_json::Value> = HashMap::new();
+        let result = render_template("Hello, {{ missing_var }}!", &ctx);
         assert!(result.is_err());
     }
 
     #[test]
     fn plain_content_without_vars_passes_through() {
         let content = "no template syntax here\njust text";
-        let result = render_template(content, &HashMap::new()).unwrap();
+        let ctx: HashMap<String, serde_json::Value> = HashMap::new();
+        let result = render_template(content, &ctx).unwrap();
         assert_eq!(result, content);
     }
 

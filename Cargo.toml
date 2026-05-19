@@ -1,10 +1,9 @@
 [package]
 name = "df"
 description = "A Lua-powered dotfile manager"
-version = "0.1.1"
-edition = "2024"
-rust-version = "1.85.0"
 repository = "https://github.com/tehbilly/df"
+version = "0.1.2"
+edition = "2024"
 
 [dependencies]
 tracing = "0.1"

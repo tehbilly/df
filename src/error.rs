@@ -48,6 +48,12 @@ pub enum Error {
     SerdeJsonError(#[from] serde_json::Error),
 }
 
+impl From<String> for Error {
+    fn from(value: String) -> Self {
+        Error::ErrorMessage(value)
+    }
+}
+
 impl From<StripPrefixError> for Error {
     fn from(value: StripPrefixError) -> Self {
         Error::ErrorMessage(value.to_string())

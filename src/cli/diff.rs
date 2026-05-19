@@ -18,6 +18,7 @@ use ratatui::{
     Terminal,
     backend::CrosstermBackend,
     layout::{
+        Alignment,
         Constraint,
         Layout,
         Rect,
@@ -34,6 +35,7 @@ use ratatui::{
     },
     widgets::{
         Block,
+        BorderType,
         Borders,
         List,
         ListItem,
@@ -92,7 +94,6 @@ struct DiffState {
     global_config: GlobalConfig,
     local_config:  LocalConfig,
     output_path:   PathBuf,
-    state:         State,
     focus:         Focus,
 
     // File list
@@ -106,7 +107,7 @@ struct DiffState {
 
 enum FileListItem {
     Header(String),
-    File(PlannedOp),
+    File(ReconcileItem),
 }
 
 #[derive(Clone, PartialEq)]
@@ -137,10 +138,10 @@ impl DiffState {
         terminal.clear().io_err("unable to clear terminal")?;
 
         loop {
-            if let Some(i) = self.list_state.selected() {
-                if let FileListItem::File(ref op) = self.items[i] {
-                    self.do_diff(op.clone())?;
-                }
+            if let Some(i) = self.list_state.selected()
+                && let FileListItem::File(ref item) = self.items[i]
+            {
+                self.do_diff(item.op.clone())?;
             }
 
             terminal.draw(|f| self.draw_ui(f)).io_err("unable to draw ui")?;
@@ -178,27 +179,41 @@ impl DiffState {
                 Focus::DiffArea => self.scroll_down(1),
             },
             // TODO: See if we can easily do these to the height of the scrollable area?
-            KeyCode::PageUp if let Focus::DiffArea = self.focus => self.scroll_up(10),
-            KeyCode::PageDown if let Focus::DiffArea = self.focus => self.scroll_down(10),
-            KeyCode::Tab => self.focus = self.focus.next(),
+            KeyCode::PageUp if let Focus::DiffArea = self.focus => self.scroll_up(5),
+            KeyCode::PageDown if let Focus::DiffArea = self.focus => self.scroll_down(5),
+            KeyCode::Tab => {
+                if self.focus == Focus::FileList && self.diff_lines.is_empty() {
+                    // Only swap focus from file list if there's actually a diff
+                    return Ok(());
+                }
+                self.focus = self.focus.next();
+            },
             _ => {},
         }
         Ok(())
     }
 
     fn draw_ui(&mut self, f: &mut Frame) {
-        let chunks = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(25), Constraint::Percentage(75)])
+        let ui_chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Min(0), Constraint::Length(3)])
             .split(f.area());
 
-        self.render_file_list(f, chunks[0]);
+        let main_area = ui_chunks[0];
+        let help_area = ui_chunks[1];
 
-        let diff = Paragraph::new(self.diff_lines.clone())
-            .block(Block::default().borders(Borders::ALL))
-            .scroll((self.diff_offset, 0));
+        self.render_help_area(f, help_area);
 
-        f.render_widget(diff, chunks[1]);
+        let main_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(25), Constraint::Percentage(75)])
+            .split(main_area);
+
+        let list_area = main_chunks[0];
+        let info_area = main_chunks[1];
+
+        self.render_file_list(f, list_area);
+        self.render_info_area(f, info_area);
     }
 
     fn render_file_list(&mut self, f: &mut Frame, area: Rect) {
@@ -218,8 +233,7 @@ impl DiffState {
                     ]);
                     ListItem::new(content)
                 },
-                FileListItem::File(op) => {
-                    let item = ReconcileItem::for_op(op, &self.state).expect("Could not reconcile file list item");
+                FileListItem::File(item) => {
                     let style = match item.status {
                         ReconcileStatus::Deploy => Style::default().green(),
                         ReconcileStatus::Clean => Style::default().dim(),
@@ -231,7 +245,7 @@ impl DiffState {
 
                     let content = Line::from(vec![
                         Span::raw("  "),
-                        Span::styled(path_rel_to(item.op.dst, self.output_path.clone()), style),
+                        Span::styled(path_rel_to(item.op.dst.clone(), self.output_path.clone()), style),
                     ]);
                     ListItem::new(content)
                 },
@@ -239,10 +253,170 @@ impl DiffState {
             .collect();
 
         let list = List::new(items)
-            .block(Block::default().borders(Borders::ALL))
+            .block(
+                Block::default()
+                    .title("Files")
+                    .title_alignment(Alignment::Center)
+                    .title_style(if self.focus == Focus::FileList {
+                        Style::default().add_modifier(Modifier::BOLD)
+                    } else {
+                        Style::default()
+                    })
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Thick)
+                    .border_style(if self.focus == Focus::FileList {
+                        Style::default().cyan()
+                    } else {
+                        Style::default()
+                    }),
+            )
             .highlight_style(Style::default().bg(Color::DarkGray).add_modifier(Modifier::BOLD));
 
         f.render_stateful_widget(list, area, &mut self.list_state);
+    }
+
+    fn render_info_area(&mut self, f: &mut Frame, area: Rect) {
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(6), Constraint::Min(0)])
+            .split(area);
+
+        let summary_area = chunks[0];
+        let diff_area = chunks[1];
+
+        if let Some(item) = self.list_state.selected()
+            && let Some(item) = self.items.get(item)
+            && let FileListItem::File(item) = item
+        {
+            let label_style = Style::default().bold();
+
+            let mut lines = Vec::new();
+
+            lines.push(Line::from(vec![
+                Span::styled("Status      ", label_style),
+                match item.status {
+                    ReconcileStatus::Deploy => Span::styled("needs deploy", Style::default().green()),
+                    ReconcileStatus::Clean => Span::styled("up to date", Style::default()),
+                    ReconcileStatus::SourceChanged => Span::styled("source changed", Style::default().yellow()),
+                    ReconcileStatus::ExternallyModified => Span::styled("externally modified", Style::default().red()),
+                    ReconcileStatus::Unmanaged => Span::styled("unmanaged", Style::default().red()),
+                },
+            ]));
+
+            lines.push(Line::from(vec![
+                Span::styled("Type        ", label_style),
+                Span::raw(format!("{:?}", item.op.entry_type)),
+            ]));
+
+            lines.push(Line::from(vec![
+                Span::styled("Source      ", label_style),
+                Span::raw(format!("{}", item.op.src.display())),
+            ]));
+
+            lines.push(Line::from(vec![
+                Span::styled("Destination ", label_style),
+                Span::raw(format!("{}", item.op.dst.display())),
+            ]));
+
+            let paragraph = Paragraph::new(lines).block(
+                Block::default()
+                    .title("Summary")
+                    .title_alignment(Alignment::Center)
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Thick),
+            );
+
+            f.render_widget(paragraph, summary_area);
+        }
+
+        let diff_block = Block::default()
+            .title("Diff")
+            .title_alignment(Alignment::Center)
+            .title_style(if self.focus == Focus::DiffArea {
+                Style::default().add_modifier(Modifier::BOLD)
+            } else {
+                Style::default()
+            })
+            .borders(Borders::ALL)
+            .border_type(BorderType::Thick)
+            .border_style(if self.focus == Focus::DiffArea {
+                Style::default().cyan()
+            } else {
+                Style::default()
+            });
+
+        let diff = Paragraph::new(self.diff_lines.clone())
+            .block(diff_block)
+            .scroll((self.diff_offset, 0));
+
+        f.render_widget(diff, diff_area);
+    }
+
+    fn render_help_area(&mut self, f: &mut Frame, area: Rect) {
+        let block = Block::default()
+            .title("Help")
+            .title_alignment(Alignment::Center)
+            .borders(Borders::ALL)
+            .border_type(BorderType::Double)
+            .border_style(Style::default().dim());
+
+        let highlight = Style::default().bold().white();
+        let desc_style = Style::default().dim();
+
+        let mut spans = vec![
+            // Quit
+            Span::styled("Q", highlight),
+            Span::styled("uit", desc_style),
+        ];
+
+        if self.focus == Focus::DiffArea || !self.diff_lines.is_empty() {
+            spans.append(&mut vec![
+                // Switch focus
+                Span::styled(" | ", desc_style),
+                Span::styled("⭾", highlight),
+                Span::styled(" change focus", desc_style),
+            ]);
+        }
+
+        if self.focus == Focus::FileList {
+            spans.append(&mut vec![
+                // nav
+                Span::styled(" | [", desc_style),
+                Span::styled("↓", highlight),
+                Span::styled("|", desc_style),
+                Span::styled("j", highlight),
+                Span::styled("] nav down", desc_style),
+                Span::styled(" | [", desc_style),
+                Span::styled("↑", highlight),
+                Span::styled("|", desc_style),
+                Span::styled("k", highlight),
+                Span::styled("] nav up", desc_style),
+            ]);
+        } else if self.focus == Focus::DiffArea {
+            spans.append(&mut vec![
+                // nav
+                Span::styled(" | [", desc_style),
+                Span::styled("↓", highlight),
+                Span::styled("|", desc_style),
+                Span::styled("j", highlight),
+                Span::styled("|", desc_style),
+                Span::styled("pgdn", highlight),
+                Span::styled("] nav down", desc_style),
+                Span::styled(" | [", desc_style),
+                Span::styled("↑", highlight),
+                Span::styled("|", desc_style),
+                Span::styled("k", highlight),
+                Span::styled("|", desc_style),
+                Span::styled("pgup", highlight),
+                Span::styled("] nav up", desc_style),
+            ]);
+        }
+
+        let paragraph = Paragraph::new(Line::from(spans))
+            .block(block)
+            .alignment(Alignment::Center);
+
+        f.render_widget(paragraph, area);
     }
 
     fn nav_up(&mut self) {
@@ -262,6 +436,7 @@ impl DiffState {
         }
 
         self.diff_lines = Vec::with_capacity(0);
+        self.diff_offset = 0;
         self.list_state.select(Some(prev));
     }
 
@@ -278,6 +453,7 @@ impl DiffState {
         }
 
         self.diff_lines = Vec::with_capacity(0);
+        self.diff_offset = 0;
         self.list_state.select(Some(next));
     }
 
@@ -293,8 +469,7 @@ impl DiffState {
     }
 
     fn do_diff(&mut self, op: PlannedOp) -> crate::core::Result<()> {
-        // TODO: When op.dst doesn't exist use old = String::new() && new = read src
-        if !op.dst.exists() {
+        if !op.dst.exists() || op.dst.is_dir() {
             return Ok(());
         }
 
@@ -338,10 +513,20 @@ pub(crate) fn run(flags: &GlobalFlags) -> crate::core::Result<()> {
 
     let mut items = Vec::new();
     for (module, ops) in plan.ops().iter() {
-        items.push(FileListItem::Header(module.clone()));
-
+        let mut module_items = Vec::new();
         for op in ops {
-            items.push(FileListItem::File(op.clone()));
+            let item = ReconcileItem::for_op(op, &state).expect("Could not reconcile file list item");
+            if op.entry_type == EntryType::Symlink && item.status == ReconcileStatus::Deploy {
+                continue;
+            }
+            module_items.push(item);
+        }
+
+        if !module_items.is_empty() {
+            items.push(FileListItem::Header(module.clone()));
+            for module_item in module_items {
+                items.push(FileListItem::File(module_item));
+            }
         }
     }
 
@@ -351,7 +536,6 @@ pub(crate) fn run(flags: &GlobalFlags) -> crate::core::Result<()> {
         local_config,
         output_path: flags.output_dir.clone(),
         focus: Focus::FileList,
-        state,
         items,
         list_state: Default::default(),
         diff_offset: 0,
@@ -361,6 +545,28 @@ pub(crate) fn run(flags: &GlobalFlags) -> crate::core::Result<()> {
     diff_app.run()?;
 
     Ok(())
+}
+
+fn expand_tabs(s: &str) -> String {
+    if !s.contains('\t') {
+        return s.to_owned();
+    }
+    let tab_width = 4usize;
+    let mut out = String::with_capacity(s.len() + 8);
+    let mut col = 0usize;
+    for c in s.chars() {
+        if c == '\t' {
+            let pad = tab_width - (col % tab_width);
+            for _ in 0..pad {
+                out.push(' ');
+            }
+            col += pad;
+        } else {
+            out.push(c);
+            col += 1;
+        }
+    }
+    out
 }
 
 fn diff_lines<S: AsRef<str>>(old: S, new: S) -> Vec<Line<'static>> {
@@ -380,7 +586,7 @@ fn diff_lines<S: AsRef<str>>(old: S, new: S) -> Vec<Line<'static>> {
                 for i in 0..*len {
                     let line_num = old_index + i + 1;
                     let line = old_lines[old_index + i].trim_end_matches(['\r', '\n']);
-                    let line = format!("{:>4} | {}", line_num, line);
+                    let line = format!("{:>4} | {}", line_num, expand_tabs(line));
                     result.push(Line::styled(line, Style::default().dim()));
                 }
             },
@@ -391,7 +597,7 @@ fn diff_lines<S: AsRef<str>>(old: S, new: S) -> Vec<Line<'static>> {
 
                     let mut spans = Vec::new();
                     spans.push(Span::styled(format!("{:>4} | ", line_num), Style::default().dim()));
-                    spans.push(Span::styled(line.to_string(), Style::default().red().dim()));
+                    spans.push(Span::styled(expand_tabs(line), Style::default().red().dim()));
                     result.push(Line::from(spans));
                 }
             },
@@ -402,7 +608,7 @@ fn diff_lines<S: AsRef<str>>(old: S, new: S) -> Vec<Line<'static>> {
 
                     let mut spans = Vec::new();
                     spans.push(Span::styled(format!("{:>4} | ", line_num), Style::default().dim()));
-                    spans.push(Span::styled(line.to_string(), Style::default().green()));
+                    spans.push(Span::styled(expand_tabs(line), Style::default().green()));
                     result.push(Line::from(spans));
                 }
             },
@@ -414,14 +620,14 @@ fn diff_lines<S: AsRef<str>>(old: S, new: S) -> Vec<Line<'static>> {
             } => {
                 if old_len == new_len {
                     for i in 0..*old_len {
-                        let old_line = old_lines[old_index + i];
-                        let new_line = new_lines[new_index + i];
+                        let old_line = expand_tabs(old_lines[old_index + i]);
+                        let new_line = expand_tabs(new_lines[new_index + i]);
                         let line_num = old_index + i + 1;
 
                         let mut spans = Vec::new();
                         spans.push(Span::styled(format!("{:>4} | ", line_num), Style::default().dim()));
 
-                        for change in TextDiff::from_words(old_line, new_line).iter_all_changes() {
+                        for change in TextDiff::from_words(&old_line, &new_line).iter_all_changes() {
                             let change_str = format!("{}", change);
                             let change_str = change_str.trim_end_matches(['\r', '\n']);
                             let style = match change.tag() {
@@ -440,7 +646,7 @@ fn diff_lines<S: AsRef<str>>(old: S, new: S) -> Vec<Line<'static>> {
 
                         let mut spans = Vec::new();
                         spans.push(Span::styled(format!("{:>4} | ", line_num), Style::default().dim()));
-                        spans.push(Span::styled(line.to_string(), Style::default().red().dim()));
+                        spans.push(Span::styled(expand_tabs(line), Style::default().red().dim()));
                         result.push(Line::from(spans));
                     }
                     for i in 0..*new_len {
@@ -449,7 +655,7 @@ fn diff_lines<S: AsRef<str>>(old: S, new: S) -> Vec<Line<'static>> {
 
                         let mut spans = Vec::new();
                         spans.push(Span::styled(format!("{:>4} | ", line_num), Style::default().dim()));
-                        spans.push(Span::styled(line.to_string(), Style::default().green()));
+                        spans.push(Span::styled(expand_tabs(line), Style::default().green()));
                         result.push(Line::from(spans));
                     }
                 }
