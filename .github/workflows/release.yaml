@@ -61,7 +61,7 @@ jobs:
         shell: bash
         run: |
           VERSION="${GITHUB_REF#refs/tags/v}"
-          ARCHIVE="${CRATE_NAME}-${VERSION}-${{ matrix.target }}.tar.gz"
+          ARCHIVE="${CRATE_NAME}-${{ matrix.target }}.tar.gz"
           tar -czf "$ARCHIVE" -C target/${{ matrix.target }}/release $CRATE_NAME
           shasum -a 256 "$ARCHIVE" > "${ARCHIVE}.sha256"
 
@@ -70,7 +70,7 @@ jobs:
         shell: pwsh
         run: |
           $VERSION = $env:GITHUB_REF.Replace("refs/tags/v", "")
-          $ARCHIVE = "${env:CRATE_NAME}-${VERSION}-${{ matrix.target }}.zip"
+          $ARCHIVE = "${env:CRATE_NAME}-${{ matrix.target }}.zip"
           Compress-Archive -Path target\${{ matrix.target }}\release\${env:CRATE_NAME}.exe -DestinationPath $ARCHIVE
           $hash = (Get-FileHash -Path $ARCHIVE -Algorithm SHA256).Hash.ToLower()
           Write-Output "$hash  $ARCHIVE" | Out-File -FilePath "${ARCHIVE}.sha256" -Encoding ASCII

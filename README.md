@@ -15,6 +15,10 @@ variables, and react to the current machine's environment.
   ```shell
   cargo binstall [--locked] --git https://github.com/tehbilly/df df
   ```
+- Or with [mise](https://mise.jdx.dev):
+  ```shell
+  mise use -g github:tehbilly/df
+  ```
 
 ## Concepts
 
