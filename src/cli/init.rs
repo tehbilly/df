@@ -97,6 +97,8 @@ pub(crate) fn setup_local_config<P: AsRef<Path>>(flags: &GlobalFlags, target_dir
     let config_path = target_dir.join("config.lua");
     let local_template = flags.source_dir.join("local.template.lua");
     let local_path = target_dir.join("local.lua");
+    let use_local_template =
+        local_template.exists() && confirm("Do you want to use local.template.lua as template", true)?;
 
     let lua = create_vm()?;
     let global_config = load_global_config(&lua, &config_path)?;
@@ -108,15 +110,12 @@ pub(crate) fn setup_local_config<P: AsRef<Path>>(flags: &GlobalFlags, target_dir
         .collect::<Vec<_>>();
 
     // Select modules if interactive, otherwise don't activate any modules
-    let module_names = if std::io::stdin().is_terminal() && std::io::stdout().is_terminal() {
+    let module_names = if !use_local_template && std::io::stdin().is_terminal() && std::io::stdout().is_terminal() {
         MultiSelect::new("Select modules to activate", modules.as_slice()).run()?
     } else {
         vec![]
     };
     info!("Creating local.lua with selected modules: {:?}", module_names);
-
-    let use_local_template =
-        local_template.exists() && confirm("Do you want to use local.template.lua as template", true)?;
 
     let content = if use_local_template {
         debug!("Using local.template.lua to create local.lua");
