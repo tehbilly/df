@@ -83,11 +83,11 @@ pub(crate) enum Commands {
         module: Option<String>,
 
         /// Dry-run: do not perform actions, just print what would happen
-        #[clap(long = "dry-run", conflicts_with = "force")]
+        #[clap(long = "dry-run")]
         dry_run: bool,
 
         /// Overwrite externally-modified files and continue past hook errors
-        #[clap(long = "force", short = 'f', conflicts_with = "dry_run")]
+        #[clap(long = "force", short = 'f')]
         force: bool,
     },
     /// List modules in global/local configs
