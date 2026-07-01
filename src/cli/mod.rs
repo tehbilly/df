@@ -9,6 +9,7 @@ use clap::{
     Subcommand,
 };
 use tracing::{
+    debug,
     info,
     level_filters::LevelFilter,
     warn,
@@ -121,6 +122,16 @@ where
 {
     let mut app = Cli::parse_from(args);
 
+    // Set up tracing subscriber based on requested verbosity
+    tracing_subscriber::fmt::fmt()
+        .with_level(true)
+        .with_max_level(match app.global.verbose {
+            2 => LevelFilter::TRACE,
+            1 => LevelFilter::DEBUG,
+            _ => LevelFilter::INFO,
+        })
+        .init();
+
     app.global.source_dir = app
         .global
         .source_dir
@@ -133,26 +144,18 @@ where
         .canonicalize()
         .io_err(format!("output dir not found: {}", app.global.output_dir.display()))?;
 
-    app.global.state_dir = app
-        .global
-        .state_dir
+    let state_dir = app.global.state_dir;
+    if !state_dir.exists() {
+        debug!("Creating state dir: {}", state_dir.display());
+        std::fs::create_dir_all(&state_dir)
+            .io_err(format!("cannot create state directory: {}", state_dir.display()))?;
+    }
+    app.global.state_dir = state_dir
         .canonicalize()
-        .io_err(format!("state dir not found: {}", app.global.output_dir.display()))?;
-
-    // Set up tracing subscriber based on requested verbosity
-    tracing_subscriber::fmt::fmt()
-        .with_level(true)
-        .with_max_level(match app.global.verbose {
-            2 => LevelFilter::TRACE,
-            1 => LevelFilter::DEBUG,
-            _ => LevelFilter::INFO,
-        })
-        .init();
+        .io_err(format!("unable to canonicalize dir: {}", state_dir.display()))?;
 
     match app.command {
         Commands::Init { target_dir } => {
-            println!("init targeting: {:?}", target_dir);
-
             let path = match target_dir {
                 Some(path) => path,
                 None => std::env::current_dir().io_err("failed to get current directory")?,
